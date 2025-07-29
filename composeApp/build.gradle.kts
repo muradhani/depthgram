@@ -22,6 +22,7 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation("org.jetbrains.skiko:skiko-awt:0.9.21")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -29,6 +30,8 @@ kotlin {
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
+            implementation("org.jetbrains.skiko:skiko-awt:0.9.21")
+            implementation("org.usb4java:usb4java:1.3.0")
         }
     }
 }
