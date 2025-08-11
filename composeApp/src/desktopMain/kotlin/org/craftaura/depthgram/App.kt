@@ -13,6 +13,7 @@ import java.io.DataInputStream
 import java.io.File
 import java.net.ServerSocket
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.concurrent.Executors
 import javax.imageio.ImageIO
 
@@ -50,12 +51,20 @@ fun startImageReceiver(onImageReceived: (ByteArray) -> Unit) {
 
                 while (!socket.isClosed) {
                     try {
-                        val size = input.readInt() // ⬅️ This reads 4 bytes as int
+                        val size = input.readInt()
                         val bytes = ByteArray(size)
-                        input.readFully(bytes) // ⬅️ This reads the full image
-
+                        input.readFully(bytes)
+                        val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+                        val fx = buffer.float
+                        val fy = buffer.float
+                        val cx = buffer.float
+                        val cy = buffer.float
+                        val width = buffer.int
+                        val height = buffer.int
+                        val jpegBytes = bytes.copyOfRange(24, bytes.size)
                         onImageReceived(bytes)
-                        println("✅ Image received: ${bytes.size} bytes")
+                        println("✅ Image received: JPEG=${jpegBytes.size} bytes, Intrinsics=fx:$fx fy:$fy cx:$cx cy:$cy w:$width h:$height")
+
                     } catch (e: Exception) {
                         println("⚠️ Connection error: ${e.message}")
                         socket.close()
