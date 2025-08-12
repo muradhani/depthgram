@@ -32,6 +32,7 @@ fun App() {
     val imageState = remember { mutableStateOf<ImageBitmap?>(null) }
     runAdbReverse()
     var imageBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    var inputStream: DataInputStream? by remember { mutableStateOf(null) }
     var outputStream: DataOutputStream? by remember { mutableStateOf(null) }
     var distance by remember { mutableStateOf<Float?>(null) }
     LaunchedEffect(Unit) {
@@ -53,6 +54,7 @@ fun App() {
     imageState.value?.let { img ->
         ClickableImage(image = img) { x, y ->
             sendTouchCoordinates(x.toInt(), y.toInt(), outputStream!!)
+            distance = receiveDistance(DataInputStream(inputStream))
         }
     }
 }
