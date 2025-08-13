@@ -39,7 +39,7 @@ fun App() {
         startImageReceiver(
             onImageReceived = { jpegBytes ->
                 val img = ImageIO.read(ByteArrayInputStream(jpegBytes))
-                imageBitmap = img.toComposeImageBitmap()
+                imageState.value = img.toComposeImageBitmap()
             },
             onStreamReady = { out ->
                 outputStream = out
