@@ -47,6 +47,9 @@ fun App() {
             onDistanceReceived = { dist ->
                 distance = dist
                 println("📏 Distance from phone: $dist meters")
+            },
+            onInputReady = { input ->
+                inputStream = input
             }
         )
     }
@@ -61,6 +64,7 @@ fun App() {
 fun startImageReceiver(
     onImageReceived: (ByteArray) -> Unit,
     onStreamReady: (DataOutputStream) -> Unit,
+    onInputReady: (DataInputStream) -> Unit,
     onDistanceReceived: (Float) -> Unit
 ) {
     val executor = Executors.newSingleThreadExecutor()
@@ -76,7 +80,7 @@ fun startImageReceiver(
                 val input = DataInputStream(socket.getInputStream())
                 val output = DataOutputStream(socket.getOutputStream())
                 onStreamReady(output)
-
+                onInputReady(input)
                 while (!socket.isClosed) {
                     try {
                         val msgType = input.readInt()
