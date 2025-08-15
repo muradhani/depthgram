@@ -63,39 +63,32 @@ object SocketManager {
         }
     }
 
-    private suspend fun listenForMessages() {
-        withContext(Dispatchers.IO) {
-            try {
-                while (clientSocket?.isClosed == false) {
-                    val msgType = input!!.readInt()
-
-                    when (msgType) {
-                        1 -> {
-                            val size = input!!.readInt()
-                            val bytes = ByteArray(size)
-                            input!!.readFully(bytes)
-
-                            val jpegBytes = bytes.copyOfRange(24, bytes.size)
-                            val img = ImageIO.read(ByteArrayInputStream(jpegBytes))
-                            if (img == null) {
-                                println("⚠️ Failed to decode image — bad bytes?")
-                            } else {
-                                _imageFlow.value = img.toComposeImageBitmap()
-                            }
-                        }
-                        2 -> {
-                            val distance = input!!.readFloat()
-                            _distanceFlow.value = distance
-                            println("Distance from phone: $distance meters")
-                        }
-                        else -> {
-                            println("Unknown message type: $msgType")
+    private suspend fun listenForMessages() = withContext(Dispatchers.IO) {
+        try {
+            while (clientSocket?.isClosed == false) {
+                val msgType = input!!.readInt()
+                when (msgType) {
+                    1 -> {
+                        val size = input!!.readInt()
+                        val bytes = ByteArray(size)
+                        input!!.readFully(bytes)
+                        val jpegBytes = bytes.copyOfRange(24, bytes.size)
+                        ImageIO.read(ByteArrayInputStream(jpegBytes))?.let {
+                            _imageFlow.value = it.toComposeImageBitmap()
                         }
                     }
+                    2 -> {
+                        val distance = input!!.readFloat()
+                        _distanceFlow.value = distance
+                        println("📏 Distance from phone: $distance m")
+                    }
+                    else -> println("⚠ Unknown message type: $msgType")
                 }
-            } finally {
-                reconnect()
             }
+        } catch (e: Exception) {
+            println("⚠ Connection lost: ${e.message}")
+        } finally {
+            reconnect()
         }
     }
 
