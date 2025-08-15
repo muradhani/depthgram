@@ -30,11 +30,17 @@ import javax.imageio.ImageIO
 @Composable
 fun App() {
     val imageState = remember { mutableStateOf<ImageBitmap?>(null) }
-    runAdbReverse()
+
+    LaunchedEffect(Unit) {
+        runAdbReverse()
+    }
+
     var imageBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var inputStream: DataInputStream? by remember { mutableStateOf(null) }
     var outputStream: DataOutputStream? by remember { mutableStateOf(null) }
     var distance by remember { mutableStateOf<Float?>(null) }
+
+    // Start server only once
     LaunchedEffect(Unit) {
         startImageReceiver(
             onImageReceived = { jpegBytes ->
@@ -47,9 +53,6 @@ fun App() {
             onDistanceReceived = { dist ->
                 distance = dist
                 println("📏 Distance from phone: $dist meters")
-            },
-            onInputReady = { input ->
-                inputStream = input
             }
         )
     }
@@ -57,14 +60,13 @@ fun App() {
     imageState.value?.let { img ->
         ClickableImage(image = img) { x, y ->
             sendTouchCoordinates(x.toInt(), y.toInt(), outputStream!!)
-            distance = receiveDistance(DataInputStream(inputStream))
+            //distance = receiveDistance(DataInputStream(inputStream))
         }
     }
 }
 fun startImageReceiver(
     onImageReceived: (ByteArray) -> Unit,
     onStreamReady: (DataOutputStream) -> Unit,
-    onInputReady: (DataInputStream) -> Unit,
     onDistanceReceived: (Float) -> Unit
 ) {
     val executor = Executors.newSingleThreadExecutor()
@@ -80,7 +82,7 @@ fun startImageReceiver(
                 val input = DataInputStream(socket.getInputStream())
                 val output = DataOutputStream(socket.getOutputStream())
                 onStreamReady(output)
-                onInputReady(input)
+
                 while (!socket.isClosed) {
                     try {
                         val msgType = input.readInt()
@@ -130,6 +132,7 @@ fun runAdbReverse() {
 
 fun sendTouchCoordinates(x: Int, y: Int, out: DataOutputStream) {
     out.writeInt(3) // Message type: touch coordinates
+    out.writeInt(8)
     out.writeInt(x)
     out.writeInt(y)
     out.flush()
