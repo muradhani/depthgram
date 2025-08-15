@@ -77,7 +77,11 @@ object SocketManager {
 
                             val jpegBytes = bytes.copyOfRange(24, bytes.size)
                             val img = ImageIO.read(ByteArrayInputStream(jpegBytes))
-                            img?.let { _imageFlow.value = it.toComposeImageBitmap() }
+                            if (img == null) {
+                                println("⚠️ Failed to decode image — bad bytes?")
+                            } else {
+                                _imageFlow.value = img.toComposeImageBitmap()
+                            }
                         }
                         2 -> {
                             val distance = input!!.readFloat()
