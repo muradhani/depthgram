@@ -89,9 +89,8 @@ object SocketManager {
                         }
                     }
                 }
-            } catch (e: Exception) {
-                println("Connection error: ${e.message}")
-                clientSocket?.close()
+            } finally {
+                reconnect()
             }
         }
     }
@@ -123,6 +122,13 @@ object SocketManager {
         } catch (e: Exception) {
             println("Failed to run adb reverse: ${e.message}")
         }
+    }
+    private fun reconnect() {
+        println("🔄 Reconnecting...")
+        clientSocket?.close()
+        input = null
+        output = null
+        startServer()
     }
 }
 
