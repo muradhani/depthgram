@@ -92,7 +92,7 @@ object SocketManager {
         }
     }
 
-    fun sendTouchCoordinates(x: Int, y: Int) {
+    suspend fun sendTouchCoordinates(x: Int, y: Int) {
         try {
             output?.apply {
                 writeInt(3)
