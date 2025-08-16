@@ -25,13 +25,13 @@ import javax.imageio.ImageIO
 
 
 object SocketManager {
-    private var serverSocket: ServerSocket? = null
+    private var imageServer: ServerSocket? = null
     private var controlServer: ServerSocket? = null
-    private var clientSocket: Socket? = null
+    private var imageClient: Socket? = null
 
     private var controlClient: Socket? = null
-    private var input: DataInputStream? = null
-    private var output: DataOutputStream? = null
+    private var imageInput: DataInputStream? = null
+    private var imageOutput: DataOutputStream? = null
 
     private var controlInput: DataInputStream? = null
 
@@ -44,52 +44,56 @@ object SocketManager {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    fun startServer(port: Int = 8080) {
-        if (serverSocket != null) return // Already started
+    fun startServers() {
+        val scope = CoroutineScope(Dispatchers.IO)
 
+        // Start image server
         scope.launch {
             try {
-                runAdbReverse()
-                serverSocket = ServerSocket(port)
-                println("📡 Listening on port $port...")
-
-                while (true) {
-                    clientSocket = serverSocket!!.accept()
-                    println("📥 Client connected: ${clientSocket!!.inetAddress.hostAddress}")
-
-                    input = DataInputStream(clientSocket!!.getInputStream())
-                    output = DataOutputStream(clientSocket!!.getOutputStream())
-                    listenForMessages()
-
-                    controlServer = ServerSocket(8081)
-                    controlClient = controlServer!!.accept()
-                    controlInput = DataInputStream(controlClient!!.getInputStream())
-                    controlOutput = DataOutputStream(controlClient!!.getOutputStream())
-                    listenForDistance()
-                }
+                imageServer = ServerSocket(8080)
+                println("📡 Waiting for image client...")
+                imageClient = imageServer!!.accept()
+                println("✅ Image client connected")
+                imageInput = DataInputStream(imageClient!!.getInputStream())
+                listenForMessages()
             } catch (e: Exception) {
-                println("❌ Server error: ${e.message}")
-                e.printStackTrace()
+                println("❌ Image server error: ${e.message}")
+            }
+        }
+
+        // Start control server
+        scope.launch {
+            try {
+                controlServer = ServerSocket(8081)
+                println("📡 Waiting for control client...")
+                controlClient = controlServer!!.accept()
+                println("✅ Control client connected")
+                controlInput = DataInputStream(controlClient!!.getInputStream())
+                controlOutput = DataOutputStream(controlClient!!.getOutputStream())
+                listenForDistance()
+            } catch (e: Exception) {
+                println("❌ Control server error: ${e.message}")
             }
         }
     }
 
+
     private suspend fun listenForMessages() = withContext(Dispatchers.IO) {
         try {
-            while (clientSocket?.isClosed == false) {
-                val msgType = input!!.readInt()
+            while (imageClient?.isClosed == false) {
+                val msgType = imageInput!!.readInt()
                 when (msgType) {
                     1 -> {
-                        val size = input!!.readInt()
+                        val size = imageInput!!.readInt()
                         val bytes = ByteArray(size)
-                        input!!.readFully(bytes)
+                        imageInput!!.readFully(bytes)
                         val jpegBytes = bytes.copyOfRange(24, bytes.size)
                         ImageIO.read(ByteArrayInputStream(jpegBytes))?.let {
                             _imageFlow.value = it.toComposeImageBitmap()
                         }
                     }
                     2 -> {
-                        val distance = input!!.readFloat()
+                        val distance = imageInput!!.readFloat()
                         _distanceFlow.value = distance
                         println("📏 Distance from phone: $distance m")
                     }
@@ -145,10 +149,10 @@ object SocketManager {
     }
     private fun reconnect() {
         println("🔄 Reconnecting...")
-        clientSocket?.close()
-        input = null
-        output = null
-        startServer()
+        imageClient?.close()
+        imageInput = null
+        imageOutput = null
+        startServers()
     }
 }
 
