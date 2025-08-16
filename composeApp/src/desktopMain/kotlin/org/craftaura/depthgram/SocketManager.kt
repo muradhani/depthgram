@@ -26,10 +26,16 @@ import javax.imageio.ImageIO
 
 object SocketManager {
     private var serverSocket: ServerSocket? = null
+    private var controlServer: ServerSocket? = null
     private var clientSocket: Socket? = null
+
+    private var controlClient: Socket? = null
     private var input: DataInputStream? = null
     private var output: DataOutputStream? = null
 
+    private var controlInput: DataInputStream? = null
+
+    private var controlOutput: DataOutputStream? = null
     private val _imageFlow = MutableStateFlow<ImageBitmap?>(null)
     val imageFlow = _imageFlow.asStateFlow()
 
@@ -53,8 +59,13 @@ object SocketManager {
 
                     input = DataInputStream(clientSocket!!.getInputStream())
                     output = DataOutputStream(clientSocket!!.getOutputStream())
-
                     listenForMessages()
+
+                    controlServer = ServerSocket(8081)
+                    controlClient = controlServer!!.accept()
+                    controlInput = DataInputStream(controlClient!!.getInputStream())
+                    controlOutput = DataOutputStream(controlClient!!.getOutputStream())
+                    listenForDistance()
                 }
             } catch (e: Exception) {
                 println("❌ Server error: ${e.message}")
@@ -91,10 +102,21 @@ object SocketManager {
             reconnect()
         }
     }
+    private suspend fun listenForDistance() = withContext(Dispatchers.IO) {
+        try {
+            while (controlClient?.isClosed == false) {
+                val distance = controlInput!!.readFloat()
+                _distanceFlow.value = distance
+                println("📏 Distance: $distance m")
+            }
+        } catch (e: Exception) {
+            println("⚠ Control stream lost: ${e.message}")
+        }
+    }
 
     suspend fun sendTouchCoordinates(x: Int, y: Int) {
         try {
-            output?.apply {
+            controlOutput?.apply {
                 writeInt(3)
                 writeInt(8)
                 writeInt(x)
@@ -108,14 +130,15 @@ object SocketManager {
 
     private fun runAdbReverse() {
         try {
-            val process = ProcessBuilder("adb", "reverse", "tcp:8080", "tcp:8080")
+            ProcessBuilder("adb", "reverse", "tcp:8080", "tcp:8080")
                 .redirectErrorStream(true)
                 .start()
-            process.inputStream.bufferedReader().use {
-                it.lines().forEach { line -> println("ADB: $line") }
-            }
-            process.waitFor()
-            println("adb reverse set up")
+                .waitFor()
+
+            ProcessBuilder("adb", "reverse", "tcp:8081", "tcp:8081")
+                .redirectErrorStream(true)
+                .start()
+                .waitFor()
         } catch (e: Exception) {
             println("Failed to run adb reverse: ${e.message}")
         }
