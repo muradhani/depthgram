@@ -46,7 +46,7 @@ object SocketManager {
 
     fun startServers() {
         val scope = CoroutineScope(Dispatchers.IO)
-
+        runAdbReverse()
         // Start image server
         scope.launch {
             try {
@@ -55,7 +55,7 @@ object SocketManager {
                 imageClient = imageServer!!.accept()
                 println("✅ Image client connected")
                 imageInput = DataInputStream(imageClient!!.getInputStream())
-                listenForMessages()
+                listenForImages()
             } catch (e: Exception) {
                 println("❌ Image server error: ${e.message}")
             }
@@ -78,40 +78,38 @@ object SocketManager {
     }
 
 
-    private suspend fun listenForMessages() = withContext(Dispatchers.IO) {
+    private suspend fun listenForImages() = withContext(Dispatchers.IO) {
         try {
             while (imageClient?.isClosed == false) {
-                val msgType = imageInput!!.readInt()
-                when (msgType) {
-                    1 -> {
-                        val size = imageInput!!.readInt()
-                        val bytes = ByteArray(size)
-                        imageInput!!.readFully(bytes)
-                        val jpegBytes = bytes.copyOfRange(24, bytes.size)
-                        ImageIO.read(ByteArrayInputStream(jpegBytes))?.let {
-                            _imageFlow.value = it.toComposeImageBitmap()
-                        }
+                imageInput?.let {
+                    val size = it.readInt()
+                    val bytes = ByteArray(size)
+                    it.readFully(bytes)
+
+                    val jpegBytes = bytes.copyOfRange(24, bytes.size)
+
+                    ImageIO.read(ByteArrayInputStream(jpegBytes))?.let {
+                        _imageFlow.value = it.toComposeImageBitmap()
                     }
-                    2 -> {
-                        val distance = imageInput!!.readFloat()
-                        _distanceFlow.value = distance
-                        println("📏 Distance from phone: $distance m")
-                    }
-                    else -> println("⚠ Unknown message type: $msgType")
                 }
+
             }
         } catch (e: Exception) {
-            println("⚠ Connection lost: ${e.message}")
+            println("⚠ Image stream lost: ${e.message}")
         } finally {
             reconnect()
         }
     }
+
     private suspend fun listenForDistance() = withContext(Dispatchers.IO) {
         try {
             while (controlClient?.isClosed == false) {
-                val distance = controlInput!!.readFloat()
-                _distanceFlow.value = distance
-                println("📏 Distance: $distance m")
+                controlInput?.let {
+                    val distance = it.readFloat()
+                    _distanceFlow.value = distance
+                    println("📏 Distance: $distance m")
+                }
+
             }
         } catch (e: Exception) {
             println("⚠ Control stream lost: ${e.message}")
@@ -121,7 +119,6 @@ object SocketManager {
     suspend fun sendTouchCoordinates(x: Int, y: Int) {
         try {
             controlOutput?.apply {
-                writeInt(3)
                 writeInt(8)
                 writeInt(x)
                 writeInt(y)
