@@ -20,7 +20,7 @@ fun App() {
     val distance by SocketManager.distanceFlow.collectAsState()
 
     LaunchedEffect(Unit) {
-        SocketManager.startServer()
+        SocketManager.startServers()
     }
 
     image?.let { img ->
